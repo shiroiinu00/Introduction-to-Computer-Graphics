@@ -1,7 +1,7 @@
 # 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
 # File Created: 19.04.2011 10:54:08
 
-mtllib 10485_Baseball_bat_v1_max2011_iteration-2.mtl
+mtllib baseball_bat.mtl
 
 #
 # object 10485_Baseball_bat_v1_max8

@@ -71,7 +71,10 @@ light_t light;
 material_t material;
 camera_t camera;
 
-Object* staticModel = nullptr;
+Object* baseballModel = nullptr;
+Object* baseballBatModel = nullptr;
+Object* microwaveModel = nullptr;
+Object* ballparkModel = nullptr;
 Object* cubeModel = nullptr;
 bool isCube = false;
 glm::mat4 modelMatrix(1.0f);
@@ -86,13 +89,30 @@ void model_setup(){
     std::string cube_obj_path = "..\\..\\src\\asset\\obj\\cube.obj";
     std::string texture_path = "..\\..\\src\\asset\\texture\\Mei_TEX.png";
 #else
-    std::string obj_path = "..\\..\\src\\asset\\obj\\Mei_Run.obj";
-    std::string texture_path = "..\\..\\src\\asset\\texture\\Mei_TEX.png";
+    std::string baseball_obj_path = "..\\..\\src\\asset\\obj\\baseball.obj";
+    std::string baseball_texture_path = "..\\..\\src\\asset\\texture\\baseball.jpg";
+    std::string baseball_bat_obj_path = "..\\..\\src\\asset\\obj\\baseball_bat.obj";
+    std::string baseball_bat_texture_path = "..\\..\\src\\asset\\texture\\baseball_bat.jpg";
+    std::string microwave_obj_path = "..\\..\\src\\asset\\obj\\microwave.obj";
+    std::string microwave_texture_path = "..\\..\\src\\asset\\texture\\microwave.jpg";
+    std::string ballpark_obj_path = "..\\..\\src\\asset\\obj\\ballpark.obj";
+    std::string ballpark_texture_path = "..\\..\\src\\asset\\texture\\ballpark.jpg";
     std::string cube_obj_path = "..\\..\\src\\asset\\obj\\cube.obj";
 #endif
 
-    staticModel = new Object(obj_path);
-    staticModel->loadTexture(texture_path);
+    // load baseball
+    baseballModel = new Object(baseball_obj_path);
+    baseballModel->loadTexture(baseball_texture_path);
+    // load baseball_bat
+    baseballBatModel = new Object(baseball_bat_obj_path);
+    baseballBatModel->loadTexture(baseball_bat_texture_path);
+    // load microwave
+    microwaveModel = new Object(microwave_obj_path);
+    microwaveModel->loadTexture(microwave_texture_path);
+    // load ballpark
+    ballparkModel = new Object(ballpark_obj_path);
+    ballparkModel->loadTexture(ballpark_texture_path);
+
     cubeModel = new Object(cube_obj_path);
 
     modelMatrix = glm::mat4(1.0f);
@@ -338,7 +358,7 @@ void render(){
     if(isCube)
         cubeModel->draw();
     else
-        staticModel->draw();
+        // staticModel->draw();
 
     shaderPrograms[shaderProgramIndex]->release();
 
@@ -391,7 +411,7 @@ int main() {
         glfwPollEvents();
     }
 
-    delete staticModel;
+    // delete staticModel;
     delete cubeModel;
     for (auto shader : shaderPrograms) {
         delete shader;
