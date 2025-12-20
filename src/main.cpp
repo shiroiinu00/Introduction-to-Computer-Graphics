@@ -95,8 +95,8 @@ void model_setup(){
     std::string baseball_bat_texture_path = "..\\..\\src\\asset\\texture\\baseball_bat.jpg";
     std::string microwave_obj_path = "..\\..\\src\\asset\\obj\\microwave.obj";
     std::string microwave_texture_path = "..\\..\\src\\asset\\texture\\microwave.jpg";
-    std::string ballpark_obj_path = "..\\..\\src\\asset\\obj\\ballpark.obj";
-    std::string ballpark_texture_path = "..\\..\\src\\asset\\texture\\ballpark.jpg";
+    std::string ballpark_obj_path = "..\\..\\src\\asset\\obj\\CUPIC_BALLPARK.obj";
+    std::string ballpark_texture_path = "..\\..\\src\\asset\\texture\\ball_parkSurface_Color.png";
     std::string cube_obj_path = "..\\..\\src\\asset\\obj\\cube.obj";
 #endif
 
@@ -116,7 +116,7 @@ void model_setup(){
     cubeModel = new Object(cube_obj_path);
 
     modelMatrix = glm::mat4(1.0f);
-    modelMatrix = glm::scale(modelMatrix, glm::vec3(100.0f));
+    modelMatrix = glm::scale(modelMatrix, glm::vec3(1.0f));
 }
 
 void camera_setup(){
@@ -358,7 +358,11 @@ void render(){
     if(isCube)
         cubeModel->draw();
     else
-        // staticModel->draw();
+        // baseballModel->draw();
+        // baseballBatModel->draw();
+        microwaveModel->draw();
+        // ballparkModel->draw();
+        
 
     shaderPrograms[shaderProgramIndex]->release();
 
@@ -411,7 +415,10 @@ int main() {
         glfwPollEvents();
     }
 
-    // delete staticModel;
+    // delete baseballModel;
+    // delete baseballBatModel;
+    // delete ballparkModel;
+    delete microwaveModel;
     delete cubeModel;
     for (auto shader : shaderPrograms) {
         delete shader;
