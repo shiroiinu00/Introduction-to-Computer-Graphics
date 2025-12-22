@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <iostream>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -82,6 +83,7 @@ float currentTime = 0.0f;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+// animation parameter
 float animationTime = 0.0f;
 bool animationPlaying = false;
 float animationDuration = 5.0f;
@@ -106,19 +108,16 @@ void model_setup(){
     // load baseball
     baseballModel = new Object(baseball_obj_path);
     baseballModel->loadTexture(baseball_texture_path);
-
     // load baseball_bat
     baseballBatModel = new Object(baseball_bat_obj_path);
     baseballBatModel->loadTexture(baseball_bat_texture_path);
-
     // load microwave
     microwaveModel = new Object(microwave_obj_path);
     microwaveModel->loadTexture(microwave_texture_path);
-
     // load ballpark
     ballparkModel = new Object(ballpark_obj_path);
     ballparkModel->loadTexture(ballpark_texture_path);
-    
+
     cubeModel = new Object(cube_obj_path);
 
     modelMatrix = glm::mat4(1.0f);
@@ -186,7 +185,7 @@ void shader_setup(){
 #endif
 
     std::vector<std::string> shadingMethod = {
-        "default", "bling-phong", "gouraud", "metallic", "glass_schlick"
+        "default", "bling-phong", "gouraud", "metallic", "glass_schlick", "rim_effect", "toon", "X-ray"
     };
 
     for(int i=0; i<shadingMethod.size(); i++){
@@ -268,52 +267,105 @@ void update(){
         }
     }
 
-    // camera rotater
     // if (camera.enableAutoOrbit) {
     //     float yawDelta = camera.autoOrbitSpeed * deltaTime;
     //     applyOrbitDelta(yawDelta, 0.0f, 0.0f);
     // }
 }
 
-void render() {
+void render(){
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glm::mat4 view = glm::lookAt(camera.position - glm::vec3(0.0f, 0.2f, 0.1f), camera.position + camera.front, camera.up);
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
 
+    glDepthMask(GL_FALSE);
+    
+    cubemapShader->use();
+
+    glm::mat4 viewWithNoTrans = glm::mat4(glm::mat3(view));
+    cubemapShader->set_uniform_value("view", viewWithNoTrans);
+    cubemapShader->set_uniform_value("projection", projection);
+
+    // bind texture unit 0
+    cubemapShader->set_uniform_value("skybox", 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+
+    glBindVertexArray(cubemapVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    
+    cubemapShader->release();
+    glDepthMask(GL_TRUE);
+
+
+    // set matrix for view, projection, model transformation
     shaderPrograms[shaderProgramIndex]->use();
+    shaderPrograms[shaderProgramIndex]->set_uniform_value("model", modelMatrix);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("view", view);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("projection", projection);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("viewPos", camera.position - glm::vec3(0.0f, 0.2f, 0.1f));
 
-    // Light uniforms
+    // TODO: set additional uniform value for shader program
+
+    // Common
     shaderPrograms[shaderProgramIndex]->set_uniform_value("light.position", light.position);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("light.ambient", light.ambient);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("light.diffuse", light.diffuse);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("light.specular", light.specular);
-    
-    // Material uniforms
     shaderPrograms[shaderProgramIndex]->set_uniform_value("material.ambient", material.ambient);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("material.diffuse", material.diffuse);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("material.specular", material.specular);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("material.gloss", material.gloss);
-    
-    // Skybox uniform
-    shaderPrograms[shaderProgramIndex]->set_uniform_value("skybox", 0);
+    shaderPrograms[shaderProgramIndex]->set_uniform_value("viewPos", camera.position - glm::vec3(0.0f, 0.2f, 0.1f));
 
-    // Special shader uniforms
-    if (shaderProgramIndex == 3) {
+    // Bling Phong
+
+    // Gouraud
+
+    // Environment Cubemap
+
+    // Metallic
+    if(shaderProgramIndex == 3 || shaderProgramIndex == 4){
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("environmentMap", 1);
+
         shaderPrograms[shaderProgramIndex]->set_uniform_value("bias", 0.2f);
         shaderPrograms[shaderProgramIndex]->set_uniform_value("alpha", 0.4f);
         shaderPrograms[shaderProgramIndex]->set_uniform_value("lightIntensity", 1.0f);
     }
+    // Glass_Schlick
 
-    if (shaderProgramIndex == 4) { 
+    if(shaderProgramIndex == 4){
         shaderPrograms[shaderProgramIndex]->set_uniform_value("AIR_coeff", 1.0f);
         shaderPrograms[shaderProgramIndex]->set_uniform_value("GLASS_coeff", 1.52f);
     }
 
+    // Advance feature - Gim effect
+    if(shaderProgramIndex == 5){
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("rimColor", glm::vec3(0.8f, 0.8f, 1.0f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("rimPower", 2.5f);
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("rimStrength", 0.7f);
+    }
+    // Advance feature - Toon
+    if (shaderProgramIndex == 6) { 
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("diffLevels", 4.0f);      
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("specThreshold", 0.5f);   
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("outlineStrength", 0.0f); 
+    }
+
+    // Advance feature - X-ray
+    if (shaderProgramIndex == 7) { 
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("xrayColor",    glm::vec3(0.2f, 0.8f, 1.0f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("xrayStrength", 1.0f);
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("xrayPower",    3.0f);
+    }
+
+    // specifying sampler for shader program
     // Define key positions for animation
     glm::vec3 baseballStartPos(10.0f, 60.0f, 180.0f);   // Starting position
     glm::vec3 baseballBatPos(10.0f, 60.0f, 300.0f);     // Bat position
@@ -396,22 +448,25 @@ void render() {
     }
     
     shaderPrograms[shaderProgramIndex]->release();
+    // if(isCube)
+    //     cubeModel->draw();
+    // else
+    //     baseballModel->draw();
+    //     baseballBatModel->draw();
+    //     microwaveModel->draw();
+    //     ballparkModel->draw();
+        
 
-    // skybox
-    glDepthFunc(GL_LEQUAL);
-    cubemapShader->use();
-    cubemapShader->set_uniform_value("view", glm::mat4(glm::mat3(view)));
-    cubemapShader->set_uniform_value("projection", projection);
-    cubemapShader->set_uniform_value("skybox", 0);
+    // shaderPrograms[shaderProgramIndex]->release();
 
-    glBindVertexArray(cubemapVAO);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
-
-    glDepthFunc(GL_LESS);
-    cubemapShader->release();
+    // TODO 
+    // Rendering cubemap environment
+    // Hint:
+    // 1. All the needed things are already set up in cubemap_setup() function.
+    // 2. You can use the vertices in cubemapVertices provided in the header/cube.h
+    // 3. You can use the cubemapShader to render the cubemap 
+    //    (refer to the above code to get an idea of how to use the shader program)
+    
 }
 
 int main() {
@@ -500,32 +555,28 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
         glfwSetWindowShouldClose(window, true);
 
     if (key == GLFW_KEY_0 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
-        shaderProgramIndex = 0;
+        shaderProgramIndex = 0; // default
     if (key == GLFW_KEY_1 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
-        shaderProgramIndex = 1;
+        shaderProgramIndex = 1; // bling phong
     if (key == GLFW_KEY_2 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
-        shaderProgramIndex = 2;
+        shaderProgramIndex = 2; // gouraud
     if (key == GLFW_KEY_3 && action == GLFW_PRESS)
-        shaderProgramIndex = 3;
+        shaderProgramIndex = 3; // metallic
     if (key == GLFW_KEY_4 && action == GLFW_PRESS)
-        shaderProgramIndex = 4;
+        shaderProgramIndex = 4; // glass_schlick
     if (key == GLFW_KEY_5 && action == GLFW_PRESS)
-        shaderProgramIndex = 5;
+        shaderProgramIndex = 5; //rim_effect
     if (key == GLFW_KEY_6 && action == GLFW_PRESS)
-        shaderProgramIndex = 6;
+        shaderProgramIndex = 6; // toon
     if (key == GLFW_KEY_7 && action == GLFW_PRESS)
-        shaderProgramIndex = 7;
-    if (key == GLFW_KEY_8 && action == GLFW_PRESS)
-        shaderProgramIndex = 8;
+        shaderProgramIndex = 7; // X-ray
+    // if (key == GLFW_KEY_8 && action == GLFW_PRESS)
+    //     shaderProgramIndex = 8;
     if( key == GLFW_KEY_9 && action == GLFW_PRESS)
         isCube = !isCube;
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         animationPlaying = true;
         animationTime = 0.0f;
-    }
-    
-    if (key == GLFW_KEY_R && action == GLFW_PRESS) {
-        animationPlaying = false;
     }
 }
 

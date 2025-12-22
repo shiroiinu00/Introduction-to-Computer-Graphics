@@ -83,6 +83,11 @@ float currentTime = 0.0f;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+// animation parameter
+float animationTime = 0.0f;
+bool animationPlaying = false;
+float animationDuration = 5.0f;
+
 void model_setup(){
 #if defined(__linux__) || defined(__APPLE__)
     std::string obj_path = "..\\..\\src\\asset\\obj\\Mei_Run.obj";
@@ -255,10 +260,17 @@ void update(){
     deltaTime = currentTime - lastFrame;
     lastFrame = currentTime;
 
-    if (camera.enableAutoOrbit) {
-        float yawDelta = camera.autoOrbitSpeed * deltaTime;
-        applyOrbitDelta(yawDelta, 0.0f, 0.0f);
+    if (animationPlaying) {
+        animationTime += deltaTime;
+        if (animationTime > animationDuration) {
+            animationPlaying = false;
+        }
     }
+
+    // if (camera.enableAutoOrbit) {
+    //     float yawDelta = camera.autoOrbitSpeed * deltaTime;
+    //     applyOrbitDelta(yawDelta, 0.0f, 0.0f);
+    // }
 }
 
 void render(){
@@ -354,17 +366,98 @@ void render(){
     }
 
     // specifying sampler for shader program
+    // Define key positions for animation
+    glm::vec3 baseballStartPos(10.0f, 60.0f, 180.0f);   // Starting position
+    glm::vec3 baseballBatPos(10.0f, 60.0f, 300.0f);     // Bat position
+    glm::vec3 baseballHitPos(10.0f, 60.0f, 290.0f);     // Position just before bat
+    glm::vec3 microwavePos(-180.0f, 40.0f, 0.0f);        // Microwave position
+    
+    // Default positions
+    glm::vec3 baseballPos = baseballStartPos;
+    glm::vec3 batPos = baseballBatPos;
+    float batRotationAngle = -45.0f;  
+    
+    if (animationTime>0.0f) {
+        float t = glm::min(animationTime / animationDuration, 1.0f); 
+        
+        float t1=0.4f;
+        float t2=0.45f;
 
-    if(isCube)
+        // Baseball moves toward bat
+        if (t <= t1) { 
+            float phaseT = t / t1; 
+            baseballPos = glm::mix(baseballStartPos, baseballHitPos, phaseT);
+            batRotationAngle = -45.0f; // Bat initial angle
+        }
+        // Bat swings and hits ball
+        else if (t <= t2) { 
+            float phaseT = (t - t1) / (t2-t1); 
+            
+            baseballPos = baseballHitPos;
+            
+            batRotationAngle = -45.0f + 90.0f * phaseT;
+        }
+        // Baseball to microwave
+        else {
+            float phaseT = (t - t2) / (1-t2); 
+            
+            float parabolicHeight = 50.0f * sin(phaseT * glm::pi<float>());
+            
+            baseballPos.x = glm::mix(10.0f, -180.0f, phaseT);
+            baseballPos.y = 60.0f + parabolicHeight;
+            baseballPos.z = glm::mix(280.0f, 0.0f, phaseT);
+            batRotationAngle = 45.0f;
+        }
+    }
+
+    if(isCube){
+        // Render cube if toggled
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", modelMatrix);
         cubeModel->draw();
-    else
-        // baseballModel->draw();
-        // baseballBatModel->draw();
+    } else {
+        // Render ballpark
+        glm::mat4 ballparkMat = glm::mat4(1.0f);
+        ballparkMat = glm::translate(ballparkMat, glm::vec3(0.0f, 30.0f, 0.0f)); 
+        ballparkMat = glm::scale(ballparkMat, glm::vec3(0.75f)); 
+        ballparkMat = glm::rotate(ballparkMat, glm::radians(50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", ballparkMat);
+        ballparkModel->draw();
+        
+        // Render baseball
+        glm::mat4 baseballMat = glm::mat4(1.0f);
+        baseballMat = glm::translate(baseballMat, baseballPos);
+        baseballMat = glm::scale(baseballMat, glm::vec3(0.8f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", baseballMat);
+        baseballModel->draw();
+        
+        // Render baseball bat
+        glm::mat4 batMat = glm::mat4(1.0f);
+        batMat = glm::translate(batMat, batPos);
+        batMat = glm::rotate(batMat, glm::radians(batRotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)); 
+        batMat = glm::scale(batMat, glm::vec3(0.5f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", batMat);
+        baseballBatModel->draw();
+        
+        // Render microwave
+        glm::mat4 microwaveMat = glm::mat4(1.0f);
+        microwaveMat = glm::translate(microwaveMat, glm::vec3(-180.0f, 40.0f, 0.0f));
+        microwaveMat = glm::rotate(microwaveMat, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        microwaveMat = glm::scale(microwaveMat, glm::vec3(0.6f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", microwaveMat);
         microwaveModel->draw();
-        // ballparkModel->draw();
+    }
+    
+    shaderPrograms[shaderProgramIndex]->release();
+    // if(isCube)
+    //     cubeModel->draw();
+    // else
+    //     baseballModel->draw();
+    //     baseballBatModel->draw();
+    //     microwaveModel->draw();
+    //     ballparkModel->draw();
         
 
-    shaderPrograms[shaderProgramIndex]->release();
+    // shaderPrograms[shaderProgramIndex]->release();
 
     // TODO 
     // Rendering cubemap environment
@@ -415,9 +508,9 @@ int main() {
         glfwPollEvents();
     }
 
-    // delete baseballModel;
-    // delete baseballBatModel;
-    // delete ballparkModel;
+    delete baseballModel;
+    delete baseballBatModel;
+    delete ballparkModel;
     delete microwaveModel;
     delete cubeModel;
     for (auto shader : shaderPrograms) {
@@ -481,6 +574,10 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
     //     shaderProgramIndex = 8;
     if( key == GLFW_KEY_9 && action == GLFW_PRESS)
         isCube = !isCube;
+    if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+        animationPlaying = true;
+        animationTime = 0.0f;
+    }
 }
 
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
