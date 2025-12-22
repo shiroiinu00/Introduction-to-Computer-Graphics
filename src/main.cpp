@@ -1,5 +1,4 @@
 #include <bits/stdc++.h>
-#include <iostream>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -83,6 +82,10 @@ float currentTime = 0.0f;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+float animationTime = 0.0f;
+bool animationPlaying = false;
+float animationDuration = 7.0f;
+
 void model_setup(){
 #if defined(__linux__) || defined(__APPLE__)
     std::string obj_path = "..\\..\\src\\asset\\obj\\Mei_Run.obj";
@@ -103,16 +106,19 @@ void model_setup(){
     // load baseball
     baseballModel = new Object(baseball_obj_path);
     baseballModel->loadTexture(baseball_texture_path);
+
     // load baseball_bat
     baseballBatModel = new Object(baseball_bat_obj_path);
     baseballBatModel->loadTexture(baseball_bat_texture_path);
+
     // load microwave
     microwaveModel = new Object(microwave_obj_path);
     microwaveModel->loadTexture(microwave_texture_path);
+
     // load ballpark
     ballparkModel = new Object(ballpark_obj_path);
     ballparkModel->loadTexture(ballpark_texture_path);
-
+    
     cubeModel = new Object(cube_obj_path);
 
     modelMatrix = glm::mat4(1.0f);
@@ -180,7 +186,7 @@ void shader_setup(){
 #endif
 
     std::vector<std::string> shadingMethod = {
-        "default", "bling-phong", "gouraud", "metallic", "glass_schlick", "rim_effect", "toon", "X-ray"
+        "default", "bling-phong", "gouraud", "metallic", "glass_schlick"
     };
 
     for(int i=0; i<shadingMethod.size(); i++){
@@ -255,125 +261,163 @@ void update(){
     deltaTime = currentTime - lastFrame;
     lastFrame = currentTime;
 
-    if (camera.enableAutoOrbit) {
-        float yawDelta = camera.autoOrbitSpeed * deltaTime;
-        applyOrbitDelta(yawDelta, 0.0f, 0.0f);
+    if (animationPlaying) {
+        animationTime += deltaTime;
+        if (animationTime > animationDuration) {
+            animationPlaying = false;
+        }
     }
+
+    // camera rotater
+    // if (camera.enableAutoOrbit) {
+    //     float yawDelta = camera.autoOrbitSpeed * deltaTime;
+    //     applyOrbitDelta(yawDelta, 0.0f, 0.0f);
+    // }
 }
 
-void render(){
+void render() {
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glm::mat4 view = glm::lookAt(camera.position - glm::vec3(0.0f, 0.2f, 0.1f), camera.position + camera.front, camera.up);
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
 
-    glDepthMask(GL_FALSE);
-    
-    cubemapShader->use();
-
-    glm::mat4 viewWithNoTrans = glm::mat4(glm::mat3(view));
-    cubemapShader->set_uniform_value("view", viewWithNoTrans);
-    cubemapShader->set_uniform_value("projection", projection);
-
-    // bind texture unit 0
-    cubemapShader->set_uniform_value("skybox", 0);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-
-    glBindVertexArray(cubemapVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
-    
-    cubemapShader->release();
-    glDepthMask(GL_TRUE);
-
-
-    // set matrix for view, projection, model transformation
     shaderPrograms[shaderProgramIndex]->use();
-    shaderPrograms[shaderProgramIndex]->set_uniform_value("model", modelMatrix);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("view", view);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("projection", projection);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("viewPos", camera.position - glm::vec3(0.0f, 0.2f, 0.1f));
 
-    // TODO: set additional uniform value for shader program
-
-    // Common
+    // Light uniforms
     shaderPrograms[shaderProgramIndex]->set_uniform_value("light.position", light.position);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("light.ambient", light.ambient);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("light.diffuse", light.diffuse);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("light.specular", light.specular);
+    
+    // Material uniforms
     shaderPrograms[shaderProgramIndex]->set_uniform_value("material.ambient", material.ambient);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("material.diffuse", material.diffuse);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("material.specular", material.specular);
     shaderPrograms[shaderProgramIndex]->set_uniform_value("material.gloss", material.gloss);
-    shaderPrograms[shaderProgramIndex]->set_uniform_value("viewPos", camera.position - glm::vec3(0.0f, 0.2f, 0.1f));
+    
+    // Skybox uniform
+    shaderPrograms[shaderProgramIndex]->set_uniform_value("skybox", 0);
 
-    // Bling Phong
-
-    // Gouraud
-
-    // Environment Cubemap
-
-    // Metallic
-    if(shaderProgramIndex == 3 || shaderProgramIndex == 4){
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("environmentMap", 1);
-
+    // Special shader uniforms
+    if (shaderProgramIndex == 3) {
         shaderPrograms[shaderProgramIndex]->set_uniform_value("bias", 0.2f);
         shaderPrograms[shaderProgramIndex]->set_uniform_value("alpha", 0.4f);
         shaderPrograms[shaderProgramIndex]->set_uniform_value("lightIntensity", 1.0f);
     }
-    // Glass_Schlick
 
-    if(shaderProgramIndex == 4){
+    if (shaderProgramIndex == 4) { 
         shaderPrograms[shaderProgramIndex]->set_uniform_value("AIR_coeff", 1.0f);
         shaderPrograms[shaderProgramIndex]->set_uniform_value("GLASS_coeff", 1.52f);
     }
 
-    // Advance feature - Gim effect
-    if(shaderProgramIndex == 5){
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("rimColor", glm::vec3(0.8f, 0.8f, 1.0f));
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("rimPower", 2.5f);
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("rimStrength", 0.7f);
-    }
-    // Advance feature - Toon
-    if (shaderProgramIndex == 6) { 
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("diffLevels", 4.0f);      
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("specThreshold", 0.5f);   
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("outlineStrength", 0.0f); 
-    }
-
-    // Advance feature - X-ray
-    if (shaderProgramIndex == 7) { 
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("xrayColor",    glm::vec3(0.2f, 0.8f, 1.0f));
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("xrayStrength", 1.0f);
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("xrayPower",    3.0f);
-    }
-
-    // specifying sampler for shader program
-
-    if(isCube)
-        cubeModel->draw();
-    else
-        // baseballModel->draw();
-        // baseballBatModel->draw();
-        microwaveModel->draw();
-        // ballparkModel->draw();
+    // Define key positions for animation
+    glm::vec3 baseballStartPos(10.0f, 60.0f, 180.0f);   // Starting position
+    glm::vec3 baseballBatPos(10.0f, 60.0f, 300.0f);     // Bat position
+    glm::vec3 baseballHitPos(10.0f, 60.0f, 290.0f);     // Position just before bat
+    glm::vec3 microwavePos(-180.0f, 40.0f, 0.0f);        // Microwave position
+    
+    // Default positions
+    glm::vec3 baseballPos = baseballStartPos;
+    glm::vec3 batPos = baseballBatPos;
+    float batRotationAngle = -45.0f;  
+    float baseballSpinSpeed = 0.0f; 
+    
+    if (animationTime>0.0f) {
+        float t = glm::min(animationTime / animationDuration, 1.0f); 
         
+        float t1=0.4f;
+        float t2=0.45f;
 
+        // Baseball moves toward bat
+        if (t <= t1) { 
+            float phaseT = t / t1; 
+            baseballPos = glm::mix(baseballStartPos, baseballHitPos, phaseT);
+            batRotationAngle = -45.0f; // Bat initial angle
+            baseballSpinSpeed=360.0f;
+        }
+        // Bat swings and hits ball
+        else if (t <= t2) { 
+            float phaseT = (t - t1) / (t2-t1); 
+            
+            baseballPos = baseballHitPos;
+            
+            batRotationAngle = -45.0f + 90.0f * phaseT;
+            baseballSpinSpeed=1440.0f;
+        }
+        // Baseball to microwave
+        else {
+            float phaseT = (t - t2) / (1-t2); 
+            
+            float parabolicHeight = 50.0f * sin(phaseT * glm::pi<float>());
+            
+            baseballPos.x = glm::mix(10.0f, -180.0f, phaseT);
+            baseballPos.y = 60.0f + parabolicHeight;
+            baseballPos.z = glm::mix(280.0f, 0.0f, phaseT);
+            batRotationAngle = 45.0f;
+            baseballSpinSpeed=720.0f;
+        }
+    }
+
+    if(isCube){
+        // Render cube if toggled
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", modelMatrix);
+        cubeModel->draw();
+    } else {
+        // Render ballpark
+        glm::mat4 ballparkMat = glm::mat4(1.0f);
+        ballparkMat = glm::translate(ballparkMat, glm::vec3(0.0f, 30.0f, 0.0f)); 
+        ballparkMat = glm::scale(ballparkMat, glm::vec3(0.75f)); 
+        ballparkMat = glm::rotate(ballparkMat, glm::radians(50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", ballparkMat);
+        ballparkModel->draw();
+        
+        // Render baseball
+        glm::mat4 baseballMat = glm::mat4(1.0f);
+        baseballMat = glm::translate(baseballMat, baseballPos);
+        float baseballRotation = currentTime * baseballSpinSpeed;
+        baseballMat = glm::rotate(baseballMat, glm::radians(baseballRotation), glm::vec3(0.0f, 0.0f, 1.0f));
+        baseballMat = glm::scale(baseballMat, glm::vec3(0.8f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", baseballMat);
+        baseballModel->draw();
+        
+        // Render baseball bat
+        glm::mat4 batMat = glm::mat4(1.0f);
+        batMat = glm::translate(batMat, batPos);
+        batMat = glm::rotate(batMat, glm::radians(batRotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)); 
+        batMat = glm::scale(batMat, glm::vec3(0.5f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", batMat);
+        baseballBatModel->draw();
+        
+        // Render microwave
+        glm::mat4 microwaveMat = glm::mat4(1.0f);
+        microwaveMat = glm::translate(microwaveMat, glm::vec3(-180.0f, 40.0f, 0.0f));
+        microwaveMat = glm::rotate(microwaveMat, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        microwaveMat = glm::scale(microwaveMat, glm::vec3(0.6f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", microwaveMat);
+        microwaveModel->draw();
+    }
+    
     shaderPrograms[shaderProgramIndex]->release();
 
-    // TODO 
-    // Rendering cubemap environment
-    // Hint:
-    // 1. All the needed things are already set up in cubemap_setup() function.
-    // 2. You can use the vertices in cubemapVertices provided in the header/cube.h
-    // 3. You can use the cubemapShader to render the cubemap 
-    //    (refer to the above code to get an idea of how to use the shader program)
-    
+    // skybox
+    glDepthFunc(GL_LEQUAL);
+    cubemapShader->use();
+    cubemapShader->set_uniform_value("view", glm::mat4(glm::mat3(view)));
+    cubemapShader->set_uniform_value("projection", projection);
+    cubemapShader->set_uniform_value("skybox", 0);
+
+    glBindVertexArray(cubemapVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+
+    glDepthFunc(GL_LESS);
+    cubemapShader->release();
 }
 
 int main() {
@@ -415,9 +459,9 @@ int main() {
         glfwPollEvents();
     }
 
-    // delete baseballModel;
-    // delete baseballBatModel;
-    // delete ballparkModel;
+    delete baseballModel;
+    delete baseballBatModel;
+    delete ballparkModel;
     delete microwaveModel;
     delete cubeModel;
     for (auto shader : shaderPrograms) {
@@ -462,25 +506,33 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
         glfwSetWindowShouldClose(window, true);
 
     if (key == GLFW_KEY_0 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
-        shaderProgramIndex = 0; // default
+        shaderProgramIndex = 0;
     if (key == GLFW_KEY_1 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
-        shaderProgramIndex = 1; // bling phong
+        shaderProgramIndex = 1;
     if (key == GLFW_KEY_2 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
-        shaderProgramIndex = 2; // gouraud
+        shaderProgramIndex = 2;
     if (key == GLFW_KEY_3 && action == GLFW_PRESS)
-        shaderProgramIndex = 3; // metallic
+        shaderProgramIndex = 3;
     if (key == GLFW_KEY_4 && action == GLFW_PRESS)
-        shaderProgramIndex = 4; // glass_schlick
+        shaderProgramIndex = 4;
     if (key == GLFW_KEY_5 && action == GLFW_PRESS)
-        shaderProgramIndex = 5; //rim_effect
+        shaderProgramIndex = 5;
     if (key == GLFW_KEY_6 && action == GLFW_PRESS)
-        shaderProgramIndex = 6; // toon
+        shaderProgramIndex = 6;
     if (key == GLFW_KEY_7 && action == GLFW_PRESS)
-        shaderProgramIndex = 7; // X-ray
-    // if (key == GLFW_KEY_8 && action == GLFW_PRESS)
-    //     shaderProgramIndex = 8;
+        shaderProgramIndex = 7;
+    if (key == GLFW_KEY_8 && action == GLFW_PRESS)
+        shaderProgramIndex = 8;
     if( key == GLFW_KEY_9 && action == GLFW_PRESS)
         isCube = !isCube;
+    if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+        animationPlaying = true;
+        animationTime = 0.0f;
+    }
+    
+    if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+        animationPlaying = false;
+    }
 }
 
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
