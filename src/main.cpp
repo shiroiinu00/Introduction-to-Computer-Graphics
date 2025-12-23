@@ -746,6 +746,7 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
     //     isCube = !isCube;
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         startanimation = true;
+        animationPlaying = false;
         animationTime = 0.0f;
 
         microwaveVisible = true;
