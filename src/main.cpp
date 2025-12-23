@@ -86,13 +86,13 @@ float lastFrame = 0.0f;
 // main animation
 float animationTime = 0.0f;
 bool animationPlaying = false;
-float animationDuration = 8.0f;
+float animationDuration = 20.0f;
 
 // microwave explosion animation
 bool microwaveVisible = true;
 bool microwaveExploding = false;
 float microwaveExplodeStart = -1.0f;
-float microwaveExplodeDuration = 0.8f;
+float microwaveExplodeDuration = 5.0f;
 
 // ball explosion animation
 bool ballVisible = true;
@@ -318,12 +318,12 @@ void cubemap_setup(){
 
     std::vector<std::string> faces
     {
-        cubemapDir + "right.jpg",
-        cubemapDir + "left.jpg",
-        cubemapDir + "top.jpg",
-        cubemapDir + "bottom.jpg",
-        cubemapDir + "front.jpg",
-        cubemapDir + "back.jpg"
+        cubemapDir + "cube_right.jpg",
+        cubemapDir + "cube_left.jpg",
+        cubemapDir + "cube_top.jpg",
+        cubemapDir + "cube_bottom.jpg",
+        cubemapDir + "cube_back.jpg",
+        cubemapDir + "cube_front.jpg"
     };
     cubemapTexture = loadCubemap(faces);   
 
@@ -491,7 +491,7 @@ void render() {
         else {
             float phaseT = (t - t2) / (1-t2); 
             
-            float parabolicHeight = 50.0f * sin(phaseT * glm::pi<float>());
+            float parabolicHeight = 50.0f * sin(1.05*phaseT * glm::pi<float>());
             
             baseballPos.x = glm::mix(10.0f, -220.0f, phaseT);
             baseballPos.y = 60.0f + parabolicHeight;
@@ -539,7 +539,7 @@ void render() {
     // Determine whether the ball hits the microwave
     float explodeAmt = 0.0f;
     float dist = glm::length(baseballPos - microwavePos);
-    if(microwaveVisible && !microwaveExploding && dist < 30.0f){
+    if(microwaveVisible && !microwaveExploding && dist < 20.0f){
         microwaveExploding = true;
         ballExploding = true;
         microwaveExplodeStart = currentTime;
