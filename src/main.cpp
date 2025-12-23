@@ -82,25 +82,88 @@ float currentTime = 0.0f;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-// animation parameter
+// ===== animation parameter =====
+// main animation
 float animationTime = 0.0f;
 bool animationPlaying = false;
 float animationDuration = 8.0f;
 
+// microwave explosion animation
 bool microwaveVisible = true;
 bool microwaveExploding = false;
 float microwaveExplodeStart = -1.0f;
 float microwaveExplodeDuration = 0.8f;
 
+// ball explosion animation
 bool ballVisible = true;
 bool ballExploding = false;
 float ballExplodeStart = -1.0f;
 float ballExlodeDuration = 0.8f;
 
+// camera animation parameter
 bool cameraFollowBall = false;
 glm::vec3 cameraDefaultTarget(0.0f);
 float defaultCameraRadius;
 float followCameraRadius = 120.0f;
+// =====================
+
+// ====== ball trail ======
+std::vector<glm::vec3> ballTrail;
+const int TRAIL_MAX = 80;
+
+unsigned int trailVAO =0, trailVBO = 0;
+shader_program_t* trailShader = nullptr;
+
+void trail_setup(){
+    glGenVertexArrays(1, &trailVAO);
+    glGenBuffers(1, &trailVBO);
+
+    glBindVertexArray(trailVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, trailVBO);
+
+    // allocate fixed size
+    glBufferData(GL_ARRAY_BUFFER, TRAIL_MAX * sizeof(glm::vec3), nullptr, GL_DYNAMIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+
+    glBindVertexArray(0);
+}
+
+void trail_push(const glm::vec3 &p){
+    ballTrail.push_back(p);
+    if ((int)ballTrail.size() > TRAIL_MAX) {
+        ballTrail.erase(ballTrail.begin());
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, trailVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0,
+ballTrail.size() * sizeof(glm::vec3),
+        ballTrail.data());
+}
+
+void trail_draw(const glm::mat4 &view, const glm::mat4& projection){
+    if (ballTrail.size() < 2) return;
+
+    trailShader->use();
+    trailShader->set_uniform_value("view", view);
+    trailShader->set_uniform_value("projection", projection);
+    trailShader->set_uniform_value("time", currentTime);
+    trailShader->set_uniform_value("pointCount", (int)ballTrail.size());
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glBindVertexArray(trailVAO);
+    glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)ballTrail.size());
+    glBindVertexArray(0);
+
+    glDisable(GL_BLEND);
+    trailShader->release();
+    
+}
+
+// =====================
 
 
 void model_setup(){
@@ -204,7 +267,7 @@ void shader_setup(){
 #endif
 
     std::vector<std::string> shadingMethod = {
-        "default", "bling-phong", "gouraud", "metallic", "glass_schlick"
+        "default"
     };
 
     for(int i=0; i<shadingMethod.size(); i++){
@@ -218,7 +281,7 @@ void shader_setup(){
         shaderProgram->link_shader();
         shaderPrograms.push_back(shaderProgram);
     }
-    // add the explosion shader program
+    // add the explosion shader to the program
     std::string vpath = shaderDir + "explosion.vert";
     std::string gpath = shaderDir + "explosion.geom";
     std::string fpath = shaderDir + "explosion.frag";
@@ -229,6 +292,19 @@ void shader_setup(){
     explosion->add_shader(fpath, GL_FRAGMENT_SHADER);
     explosion->link_shader();
     shaderPrograms.push_back(explosion);
+    // add the trail shader to the program
+    vpath = shaderDir + "trail.vert";
+    gpath = shaderDir + "trail.geom";
+    fpath = shaderDir + "trail.frag";
+    shader_program_t* trail = new shader_program_t();
+    trail->create();
+    trail->add_shader(vpath, GL_VERTEX_SHADER);
+    trail->add_shader(gpath, GL_GEOMETRY_SHADER);
+    trail->add_shader(fpath, GL_FRAGMENT_SHADER);
+    trail->link_shader();
+    shaderPrograms.push_back(trail);
+    trailShader = trail;
+
 }
 
 void cubemap_setup(){
@@ -277,6 +353,9 @@ void setup(){
     camera_setup();
     cubemap_setup();
     material_setup();
+    
+    // trail_setup
+    trail_setup();
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -393,7 +472,8 @@ void render() {
             baseballPos = glm::mix(baseballStartPos, baseballHitPos, phaseT);
             batRotationAngle = -45.0f; // Bat initial angle
             baseballSpinSpeed=360.0f;
-            camera.yaw = 90.0f;
+            // camera.yaw = 90.0f;
+            camera.yaw = glm::mix(90.0f, 270.0f, phaseT);
         }
         // Bat swings and hits ball
         else if (t <= t2) { 
@@ -419,7 +499,7 @@ void render() {
             batRotationAngle = 45.0f;
             baseballSpinSpeed=720.0f;
 
-            camera.yaw = glm::mix(90.0f, 45.0f, phaseT);
+            camera.yaw = glm::mix(270.0f, 405.0f, phaseT);
         }
     }
 
@@ -478,7 +558,7 @@ void render() {
     }
 
     // draw microwave
-    int explosionIndex = 5; // 5 is the explosion shader index
+    int explosionIndex = 1; // 5 is the explosion shader index
 
     // Render microwave
     if (microwaveVisible) {
@@ -533,7 +613,9 @@ void render() {
         }
     }
 
-
+    if(animationPlaying) trail_push(baseballPos);
+    if(ballVisible) trail_draw(view, projection);
+    // trail -> add vertex to the vector
     
     
     baseShader->release();
@@ -626,26 +708,26 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    if (key == GLFW_KEY_0 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
-        shaderProgramIndex = 0;
-    if (key == GLFW_KEY_1 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
-        shaderProgramIndex = 1;
-    if (key == GLFW_KEY_2 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
-        shaderProgramIndex = 2;
-    if (key == GLFW_KEY_3 && action == GLFW_PRESS)
-        shaderProgramIndex = 3;
-    if (key == GLFW_KEY_4 && action == GLFW_PRESS)
-        shaderProgramIndex = 4;
-    if (key == GLFW_KEY_5 && action == GLFW_PRESS)
-        shaderProgramIndex = 5;
-    if (key == GLFW_KEY_6 && action == GLFW_PRESS)
-        shaderProgramIndex = 6;
-    if (key == GLFW_KEY_7 && action == GLFW_PRESS)
-        shaderProgramIndex = 7;
-    if (key == GLFW_KEY_8 && action == GLFW_PRESS)
-        shaderProgramIndex = 8;
-    if( key == GLFW_KEY_9 && action == GLFW_PRESS)
-        isCube = !isCube;
+    // if (key == GLFW_KEY_0 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
+    //     shaderProgramIndex = 0;
+    // if (key == GLFW_KEY_1 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
+    //     shaderProgramIndex = 1;
+    // if (key == GLFW_KEY_2 && (action == GLFW_REPEAT || action == GLFW_PRESS)) 
+    //     shaderProgramIndex = 2;
+    // if (key == GLFW_KEY_3 && action == GLFW_PRESS)
+    //     shaderProgramIndex = 3;
+    // if (key == GLFW_KEY_4 && action == GLFW_PRESS)
+    //     shaderProgramIndex = 4;
+    // if (key == GLFW_KEY_5 && action == GLFW_PRESS)
+    //     shaderProgramIndex = 5;
+    // if (key == GLFW_KEY_6 && action == GLFW_PRESS)
+    //     shaderProgramIndex = 6;
+    // if (key == GLFW_KEY_7 && action == GLFW_PRESS)
+    //     shaderProgramIndex = 7;
+    // if (key == GLFW_KEY_8 && action == GLFW_PRESS)
+    //     shaderProgramIndex = 8;
+    // if( key == GLFW_KEY_9 && action == GLFW_PRESS)
+    //     isCube = !isCube;
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         animationPlaying = true;
         animationTime = 0.0f;
