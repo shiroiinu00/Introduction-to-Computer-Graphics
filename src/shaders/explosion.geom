@@ -11,6 +11,7 @@ in VS_OUT{
 out GS_OUT{
     vec3 normal;
     vec2 uv;
+    float heat;
 } gs_out;
 
 uniform mat4 model;
@@ -50,7 +51,7 @@ void main(){
     // triangle centroid (world)
     vec3 c = (gs_in[0].pos + gs_in[1].pos + gs_in[2].pos) / 3.0;
 
-    // 爆炸方向：從爆心指向這片碎片
+    // explosion direction
     vec3 radial = normalize(c - center);
 
     // face normal (world)
@@ -88,6 +89,7 @@ void main(){
         gs_out.normal = normalize(R * gs_in[i].normal); 
         gs_out.uv = gs_in[i].uv;
 
+        gs_out.heat = t;
         EmitVertex();
     }
     EndPrimitive();
