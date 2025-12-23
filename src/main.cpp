@@ -82,9 +82,26 @@ float currentTime = 0.0f;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+// animation parameter
 float animationTime = 0.0f;
 bool animationPlaying = false;
-float animationDuration = 7.0f;
+float animationDuration = 8.0f;
+
+bool microwaveVisible = true;
+bool microwaveExploding = false;
+float microwaveExplodeStart = -1.0f;
+float microwaveExplodeDuration = 0.8f;
+
+bool ballVisible = true;
+bool ballExploding = false;
+float ballExplodeStart = -1.0f;
+float ballExlodeDuration = 0.8f;
+
+bool cameraFollowBall = false;
+glm::vec3 cameraDefaultTarget(0.0f);
+float defaultCameraRadius;
+float followCameraRadius = 120.0f;
+
 
 void model_setup(){
 #if defined(__linux__) || defined(__APPLE__)
@@ -139,6 +156,7 @@ void camera_setup(){
     camera.target = glm::vec3(0.0f);
     camera.enableAutoOrbit = true;
     camera.autoOrbitSpeed = 20.0f;
+    defaultCameraRadius = camera.radius;
 
     updateCamera();
 }
@@ -200,6 +218,17 @@ void shader_setup(){
         shaderProgram->link_shader();
         shaderPrograms.push_back(shaderProgram);
     }
+    // add the explosion shader program
+    std::string vpath = shaderDir + "explosion.vert";
+    std::string gpath = shaderDir + "explosion.geom";
+    std::string fpath = shaderDir + "explosion.frag";
+    shader_program_t* explosion = new shader_program_t();
+    explosion->create();
+    explosion->add_shader(vpath, GL_VERTEX_SHADER);
+    explosion->add_shader(gpath, GL_GEOMETRY_SHADER);
+    explosion->add_shader(fpath, GL_FRAGMENT_SHADER);
+    explosion->link_shader();
+    shaderPrograms.push_back(explosion);
 }
 
 void cubemap_setup(){
@@ -264,7 +293,13 @@ void update(){
     if (animationPlaying) {
         animationTime += deltaTime;
         if (animationTime > animationDuration) {
-            animationPlaying = false;
+            // animationPlaying = false;
+            ballVisible = false;
+
+            // cameraFollowBall = false; // stop following the ball
+            // camera.target = cameraDefaultTarget;
+            // camera.radius = defaultCameraRadius;
+            // updateCamera();
         }
     }
 
@@ -382,6 +417,17 @@ void render() {
         }
     }
 
+    // let camera follow the ball
+    if(cameraFollowBall){
+        float followSpeed = 5.0f;
+        glm::vec3 followTarget = baseballPos + glm::vec3(0.0f, -10.0f, 20.0f);
+        camera.target = glm::mix(camera.target, followTarget, followSpeed * deltaTime);
+        updateCamera();
+    }
+
+    auto baseShader = shaderPrograms[shaderProgramIndex];
+    baseShader->use();
+
     if(isCube){
         // Render cube if toggled
         shaderPrograms[shaderProgramIndex]->set_uniform_value("model", modelMatrix);
@@ -395,15 +441,6 @@ void render() {
         shaderPrograms[shaderProgramIndex]->set_uniform_value("model", ballparkMat);
         ballparkModel->draw();
         
-        // Render baseball
-        glm::mat4 baseballMat = glm::mat4(1.0f);
-        baseballMat = glm::translate(baseballMat, baseballPos);
-        float baseballRotation = currentTime * baseballSpinSpeed;
-        baseballMat = glm::rotate(baseballMat, glm::radians(baseballRotation), glm::vec3(0.0f, 0.0f, 1.0f));
-        baseballMat = glm::scale(baseballMat, glm::vec3(0.8f));
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", baseballMat);
-        baseballModel->draw();
-        
         // Render baseball bat
         glm::mat4 batMat = glm::mat4(1.0f);
         batMat = glm::translate(batMat, batPos);
@@ -411,19 +448,87 @@ void render() {
         batMat = glm::scale(batMat, glm::vec3(0.5f));
         shaderPrograms[shaderProgramIndex]->set_uniform_value("model", batMat);
         baseballBatModel->draw();
-        
-        // Render microwave
+    }
+
+    // Determine whether the ball hits the microwave
+    float explodeAmt = 0.0f;
+    float dist = glm::length(baseballPos - microwavePos);
+    if(microwaveVisible && !microwaveExploding && dist < 40.0f){
+        microwaveExploding = true;
+        ballExploding = true;
+        microwaveExplodeStart = currentTime;
+        printf("explosion trigger!\n");
+    }
+    
+    if(microwaveExploding){
+        float t = (currentTime - microwaveExplodeStart) / microwaveExplodeDuration;
+        explodeAmt = 1.0f - pow(1.0f - t, 3.0f);
+        // explodeAmt = explodeAmt * explodeAmt;
+
+        if (t >= 1.0f){
+            microwaveVisible = false;
+            microwaveExploding = false;
+        }
+    }
+
+    // draw microwave
+    int explosionIndex = 5; // 5 is the explosion shader index
+
+    // Render microwave
+    if (microwaveVisible) {
         glm::mat4 microwaveMat = glm::mat4(1.0f);
         microwaveMat = glm::translate(microwaveMat, glm::vec3(-180.0f, 40.0f, 0.0f));
         microwaveMat = glm::rotate(microwaveMat, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         microwaveMat = glm::scale(microwaveMat, glm::vec3(0.6f));
         shaderPrograms[shaderProgramIndex]->set_uniform_value("model", microwaveMat);
-        microwaveModel->draw();
+        if(microwaveExploding) {
+            auto explosionShader = shaderPrograms[explosionIndex];
+            explosionShader->use();
+            explosionShader->set_uniform_value("view", view);
+            explosionShader->set_uniform_value("projection", projection);
+            explosionShader->set_uniform_value("model", microwaveMat);
+            explosionShader->set_uniform_value("explode", explodeAmt);
+            explosionShader->set_uniform_value("time", currentTime);
+            explosionShader->set_uniform_value("outTexture", 0);
+            microwaveModel->draw();
+            explosionShader->release();
+        }else{
+            baseShader->set_uniform_value("model", microwaveMat);
+            microwaveModel->draw();
+        }
     }
-    
-    shaderPrograms[shaderProgramIndex]->release();
+    if (ballVisible) {
+        // Render baseball
+        glm::mat4 baseballMat = glm::mat4(1.0f);
+        baseballMat = glm::translate(baseballMat, baseballPos);
+        float baseballRotation = currentTime * baseballSpinSpeed;
+        baseballMat = glm::rotate(baseballMat, glm::radians(baseballRotation), glm::vec3(0.0f, 0.0f, 1.0f));
+        baseballMat = glm::scale(baseballMat, glm::vec3(0.8f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", baseballMat);
+        if(ballExploding) {
+            auto explosionShader = shaderPrograms[explosionIndex];
+            explosionShader->use();
+            explosionShader->set_uniform_value("view", view);
+            explosionShader->set_uniform_value("projection", projection);
+            explosionShader->set_uniform_value("model", baseballMat);
+            float strength = pow(explodeAmt, 3);
+            explosionShader->set_uniform_value("explode", strength);
+            explosionShader->set_uniform_value("time", currentTime);
+            explosionShader->set_uniform_value("outTexture", 0);
+            baseballModel->draw();
+            explosionShader->release();
+        }else{
+            baseShader->set_uniform_value("model", baseballMat);
+            baseballModel->draw();
+        }
+    }
 
-        
+
+    
+    
+    baseShader->release();
+
+
 }
 
 int main() {
@@ -492,8 +597,8 @@ void processInput(GLFWwindow *window) {
         orbitInput.x -= 1.0f;
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
         orbitInput.y += 1.0f;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        orbitInput.y -= 1.0f;
+    // if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+    //     orbitInput.y -= 1.0f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         zoomInput -= 1.0f;
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -534,6 +639,15 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         animationPlaying = true;
         animationTime = 0.0f;
+
+        microwaveVisible = true;
+        microwaveExploding = false;
+        microwaveExplodeStart = -1.0f;
+
+        ballVisible = true;
+
+        cameraFollowBall = true;
+        camera.radius = followCameraRadius;
     }
     
     if (key == GLFW_KEY_R && action == GLFW_PRESS) {
