@@ -84,9 +84,11 @@ float lastFrame = 0.0f;
 
 // ===== animation parameter =====
 // main animation
+bool startanimation = false;
+float beforeStartDuration = 10.0f;
 float animationTime = 0.0f;
 bool animationPlaying = false;
-float animationDuration = 20.0f;
+float animationDuration = 15.0f;
 
 // microwave explosion animation
 bool microwaveVisible = true;
@@ -369,7 +371,21 @@ void update(){
     deltaTime = currentTime - lastFrame;
     lastFrame = currentTime;
 
+    if(startanimation){
+        animationTime += deltaTime;
+        float t = animationTime / beforeStartDuration;
+        printf("t: %f, animation time: %f ", t, animationTime);
+        camera.yaw = glm::mix(90.0f, 630.0f, t);
+        printf("camera's yaw: %f\n", camera.yaw);
+        if(t >= 1){
+            startanimation = false;
+            animationPlaying = true;
+            animationTime = 0.0f;
+        }
+    }
+
     if (animationPlaying) {
+        printf("Start Animation!!!\n");
         animationTime += deltaTime;
         if (animationTime > animationDuration) {
             // animationPlaying = false;
@@ -460,7 +476,7 @@ void render() {
     float batRotationAngle = -45.0f;  
     float baseballSpinSpeed = 0.0f; 
     
-    if (animationTime>0.0f) {
+    if (animationTime>0.0f && animationPlaying) {
         float t = glm::min(animationTime / animationDuration, 1.0f); 
         
         float t1=0.4f;
@@ -473,7 +489,7 @@ void render() {
             batRotationAngle = -45.0f; // Bat initial angle
             baseballSpinSpeed=360.0f;
             // camera.yaw = 90.0f;
-            camera.yaw = glm::mix(90.0f, 270.0f, phaseT);
+            camera.yaw = glm::mix(270.0f, 450.0f, phaseT);
         }
         // Bat swings and hits ball
         else if (t <= t2) { 
@@ -499,7 +515,7 @@ void render() {
             batRotationAngle = 45.0f;
             baseballSpinSpeed=720.0f;
 
-            camera.yaw = glm::mix(270.0f, 405.0f, phaseT);
+            camera.yaw = glm::mix(450.0f, 405.0f, phaseT);
         }
     }
 
@@ -729,7 +745,7 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
     // if( key == GLFW_KEY_9 && action == GLFW_PRESS)
     //     isCube = !isCube;
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
-        animationPlaying = true;
+        startanimation = true;
         animationTime = 0.0f;
 
         microwaveVisible = true;
