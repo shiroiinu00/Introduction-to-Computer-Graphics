@@ -74,6 +74,7 @@ Object* baseballModel = nullptr;
 Object* baseballBatModel = nullptr;
 Object* microwaveModel = nullptr;
 Object* ballparkModel = nullptr;
+Object* sharkModel=nullptr;
 Object* cubeModel = nullptr;
 bool isCube = false;
 glm::mat4 modelMatrix(1.0f);
@@ -183,6 +184,9 @@ void model_setup(){
     std::string ballpark_obj_path = "..\\..\\src\\asset\\obj\\CUPIC_BALLPARK.obj";
     std::string ballpark_texture_path = "..\\..\\src\\asset\\texture\\ball_parkSurface_Color.png";
     std::string cube_obj_path = "..\\..\\src\\asset\\obj\\cube.obj";
+    std::string shark_texture_path = "..\\..\\src\\asset\\texture\\Tex_Shark.png";
+    std::string shark_obj_path="..\\..\\src\\asset\\obj\\Mesh_Shark.obj";
+
 #endif
 
     // load baseball
@@ -200,6 +204,11 @@ void model_setup(){
     // load ballpark
     ballparkModel = new Object(ballpark_obj_path);
     ballparkModel->loadTexture(ballpark_texture_path);
+
+    // load shark
+    sharkModel = new Object(shark_obj_path);
+    sharkModel->loadTexture(shark_texture_path);
+
     
     cubeModel = new Object(cube_obj_path);
 
@@ -373,9 +382,11 @@ void update(){
 
     if(startanimation){
         animationTime += deltaTime;
+        
         float t = animationTime / beforeStartDuration;
         printf("t: %f, animation time: %f ", t, animationTime);
         camera.yaw = glm::mix(90.0f, 630.0f, t);
+        camera.radius=glm::mix(500.0f,100.0f,t);
         printf("camera's yaw: %f\n", camera.yaw);
         if(t >= 1){
             startanimation = false;
@@ -497,7 +508,7 @@ void render() {
             
             baseballPos = baseballHitPos;
             
-            batRotationAngle = -45.0f + 90.0f * phaseT;
+            batRotationAngle = -45.0f + 120.0f * phaseT;
             baseballSpinSpeed=1440.0f;
             
             
@@ -512,7 +523,7 @@ void render() {
             baseballPos.x = glm::mix(10.0f, -220.0f, phaseT);
             baseballPos.y = 60.0f + parabolicHeight;
             baseballPos.z = glm::mix(280.0f, 70.0f, phaseT);
-            batRotationAngle = 45.0f;
+            batRotationAngle = 75.0f;
             baseballSpinSpeed=720.0f;
 
             camera.yaw = glm::mix(450.0f, 405.0f, phaseT);
@@ -522,7 +533,7 @@ void render() {
     // let camera follow the ball
     if(cameraFollowBall){
         float followSpeed = 5.0f;
-        glm::vec3 followTarget = baseballPos + glm::vec3(0.0f, -15.0f, 30.0f);
+        glm::vec3 followTarget = baseballPos + glm::vec3(0.0f, -15.0f, 20.0f);
         camera.target = glm::mix(camera.target, followTarget, followSpeed * deltaTime);
         updateCamera();
     }
@@ -550,6 +561,14 @@ void render() {
         batMat = glm::scale(batMat, glm::vec3(0.5f));
         shaderPrograms[shaderProgramIndex]->set_uniform_value("model", batMat);
         baseballBatModel->draw();
+
+        // Render Shark
+        glm::mat4 sharkMat = glm::mat4(1.0f);
+        sharkMat = glm::translate(sharkMat, glm::vec3(0.0f, 50.0f+20.0f*sin(currentTime*10.0f),465.0f));
+        sharkMat = glm::rotate(sharkMat, glm::radians(currentTime*720.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+        sharkMat = glm::scale(sharkMat, glm::vec3(0.4f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", sharkMat);
+        sharkModel->draw();
     }
 
     // Determine whether the ball hits the microwave
@@ -705,8 +724,8 @@ void processInput(GLFWwindow *window) {
         orbitInput.x -= 1.0f;
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
         orbitInput.y += 1.0f;
-    // if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-    //     orbitInput.y -= 1.0f;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+        orbitInput.y -= 1.0f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         zoomInput -= 1.0f;
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -802,4 +821,4 @@ unsigned int loadCubemap(vector<std::string>& faces)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     return texture;
-}  
+}   
