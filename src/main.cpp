@@ -75,6 +75,8 @@ Object* baseballBatModel = nullptr;
 Object* microwaveModel = nullptr;
 Object* ballparkModel = nullptr;
 Object* sharkModel=nullptr;
+Object* catModel=nullptr;
+Object* handModel = nullptr;
 Object* cubeModel = nullptr;
 bool isCube = false;
 glm::mat4 modelMatrix(1.0f);
@@ -108,6 +110,12 @@ bool cameraFollowBall = false;
 glm::vec3 cameraDefaultTarget(0.0f);
 float defaultCameraRadius;
 float followCameraRadius = 120.0f;
+
+// cat animation
+int catNumber = 0;
+float catTime = 2.0f;
+
+
 // =====================
 
 // ====== ball trail ======
@@ -186,6 +194,10 @@ void model_setup(){
     std::string cube_obj_path = "..\\..\\src\\asset\\obj\\cube.obj";
     std::string shark_texture_path = "..\\..\\src\\asset\\texture\\Tex_Shark.png";
     std::string shark_obj_path="..\\..\\src\\asset\\obj\\Mesh_Shark.obj";
+    std::string cat_texture_path = "..\\..\\src\\asset\\texture\\Tex_Cat.png";
+    std::string cat_obj_path="..\\..\\src\\asset\\obj\\Mesh_Cat.obj";
+    std::string hand_texture_path = "..\\..\\src\\asset\\texture\\hand.jpg";
+    std::string hand_obj_path="..\\..\\src\\asset\\obj\\hand.obj";
 
 #endif
 
@@ -209,6 +221,13 @@ void model_setup(){
     sharkModel = new Object(shark_obj_path);
     sharkModel->loadTexture(shark_texture_path);
 
+    // load hand
+    handModel = new Object(hand_obj_path);
+    handModel->loadTexture(hand_texture_path);
+
+    // load cat
+    catModel = new Object(cat_obj_path);
+    catModel->loadTexture(cat_texture_path);
     
     cubeModel = new Object(cube_obj_path);
 
@@ -315,6 +334,30 @@ void shader_setup(){
     trail->link_shader();
     shaderPrograms.push_back(trail);
     trailShader = trail;
+    // add the base shader to the program
+    vpath = shaderDir + "base.vert";
+    // gpath = shaderDir + "trail.geom";
+    fpath = shaderDir + "base.frag";
+    shader_program_t* base = new shader_program_t();
+    base->create();
+    base->add_shader(vpath, GL_VERTEX_SHADER);
+    // trail->add_shader(gpath, GL_GEOMETRY_SHADER);
+    base->add_shader(fpath, GL_FRAGMENT_SHADER);
+    base->link_shader();
+    shaderPrograms.push_back(base);
+    // add the trail shader to the program
+    vpath = shaderDir + "flame.vert";
+    gpath = shaderDir + "flame.geom";
+    fpath = shaderDir + "flame.frag";
+    shader_program_t* flame = new shader_program_t();
+    flame->create();
+    flame->add_shader(vpath, GL_VERTEX_SHADER);
+    flame->add_shader(gpath, GL_GEOMETRY_SHADER);
+    flame->add_shader(fpath, GL_FRAGMENT_SHADER);
+    flame->link_shader();
+    shaderPrograms.push_back(flame);
+
+    
 
 }
 
@@ -384,19 +427,21 @@ void update(){
         animationTime += deltaTime;
         
         float t = animationTime / beforeStartDuration;
-        printf("t: %f, animation time: %f ", t, animationTime);
         camera.yaw = glm::mix(90.0f, 630.0f, t);
         camera.radius=glm::mix(500.0f,100.0f,t);
-        printf("camera's yaw: %f\n", camera.yaw);
+        if (animationTime > catTime){
+            catTime+=2.0f;
+            catNumber++;
+        }
         if(t >= 1){
             startanimation = false;
             animationPlaying = true;
             animationTime = 0.0f;
         }
+        
     }
 
     if (animationPlaying) {
-        printf("Start Animation!!!\n");
         animationTime += deltaTime;
         if (animationTime > animationDuration) {
             // animationPlaying = false;
@@ -478,8 +523,10 @@ void render() {
     // Define key positions for animation
     glm::vec3 baseballStartPos(10.0f, 60.0f, 180.0f);   // Starting position
     glm::vec3 baseballBatPos(10.0f, 60.0f, 300.0f);     // Bat position
-    glm::vec3 baseballHitPos(10.0f, 60.0f, 290.0f);     // Position just before bat
+    glm::vec3 handPos(-10.0f, 60.0f, 285.0f);     // hand position
+    glm::vec3 baseballHitPos(10.0f, 60.0f, 282.0f);     // Position just before bat
     glm::vec3 microwavePos(-220.0f, 40.0f, 70.0f);        // Microwave position
+
     
     // Default positions
     glm::vec3 baseballPos = baseballStartPos;
@@ -490,43 +537,48 @@ void render() {
     if (animationTime>0.0f && animationPlaying) {
         float t = glm::min(animationTime / animationDuration, 1.0f); 
         
+        float t0 = 0.35f;
         float t1=0.4f;
-        float t2=0.45f;
+        float t2=0.42f;
 
         // Baseball moves toward bat
         if (t <= t1) { 
             float phaseT = t / t1; 
             baseballPos = glm::mix(baseballStartPos, baseballHitPos, phaseT);
-            batRotationAngle = -45.0f; // Bat initial angle
+            // batRotationAngle = -45.0f; // Bat initial angle
             baseballSpinSpeed=360.0f;
             // camera.yaw = 90.0f;
             camera.yaw = glm::mix(270.0f, 450.0f, phaseT);
         }
         // Bat swings and hits ball
         else if (t <= t2) { 
-            float phaseT = (t - t1) / (t2-t1); 
-            
+            // float phaseT = (t - t1) / (t2-t1); 
             baseballPos = baseballHitPos;
-            
-            batRotationAngle = -45.0f + 120.0f * phaseT;
+            batRotationAngle = 75.0f;
             baseballSpinSpeed=1440.0f;
-            
-            
-        
         }
         // Baseball to microwave
         else {
-            float phaseT = (t - t2) / (1-t2); 
+            float phaseT = (t - t2) / (1.0f-t2); 
             
             float parabolicHeight = 50.0f * sin(1.05*phaseT * glm::pi<float>());
             
-            baseballPos.x = glm::mix(10.0f, -220.0f, phaseT);
+            baseballPos.x = glm::mix(baseballHitPos.x, -220.0f, phaseT);
             baseballPos.y = 60.0f + parabolicHeight;
-            baseballPos.z = glm::mix(280.0f, 70.0f, phaseT);
+            baseballPos.z = glm::mix(baseballHitPos.z, 70.0f, phaseT);
             batRotationAngle = 75.0f;
             baseballSpinSpeed=720.0f;
 
             camera.yaw = glm::mix(450.0f, 405.0f, phaseT);
+        }
+
+        if(t < t0){
+            batRotationAngle = -45.0f; // Bat initial angle
+        }else if (t <= (t1 - 0.005f)){
+            float phaseT = (t - t0) / ((t1 - 0.005f) - t0);
+            batRotationAngle = -45.0f + 120.0f * phaseT;
+        }else if ((t1 - 0.005f) < t && t <= t1){
+            batRotationAngle = 75.0f;
         }
     }
 
@@ -557,7 +609,10 @@ void render() {
         // Render baseball bat
         glm::mat4 batMat = glm::mat4(1.0f);
         batMat = glm::translate(batMat, batPos);
-        batMat = glm::rotate(batMat, glm::radians(batRotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)); 
+        batMat = glm::rotate(batMat, glm::radians(batRotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+        batMat = glm::rotate(batMat, glm::radians(batRotationAngle * 1.2f), glm::vec3(1.0f, 0.0f, 0.0f));
+        // batMat = glm::rotate(batMat, glm::radians(-10.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        batMat = glm::rotate(batMat, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f)); 
         batMat = glm::scale(batMat, glm::vec3(0.5f));
         shaderPrograms[shaderProgramIndex]->set_uniform_value("model", batMat);
         baseballBatModel->draw();
@@ -569,6 +624,69 @@ void render() {
         sharkMat = glm::scale(sharkMat, glm::vec3(0.4f));
         shaderPrograms[shaderProgramIndex]->set_uniform_value("model", sharkMat);
         sharkModel->draw();
+
+        glm::mat4 handMat = batMat; 
+        handMat = glm::translate(handMat, glm::vec3(-50.0f, 5.0f, 3.0f));
+        // handMat = glm::rotate(handMat, glm::radians(60.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        // handMat = glm::rotate(handMat, glm::radians(-40.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+        handMat = glm::rotate(handMat, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)); 
+        handMat=glm::scale(handMat,glm::vec3(1.0f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", handMat);
+        handModel->draw();
+
+         // Render Cat
+        std::vector<glm::vec3> catPos = {
+            glm::vec3(200.0f,60.0f+5.0f*sin(currentTime*10.0f),-30.0f), // RF
+            glm::vec3(80.0f, 60.0f+5.0f*sin(currentTime*10.0f), 100.0f), // 2B
+            // glm::vec3(-200.0f,60.0f+5.0f*sin(currentTime*10.0f),-30.0f), //LF
+            glm::vec3(-95.0f, 60.0f+5.0f*sin(currentTime*10.0f), 180.0f), // 3B
+            glm::vec3(-40.0f, 60.0f+5.0f*sin(currentTime*10.0f), 110.0f), // SS
+            glm::vec3(130.0f, 60.0f+5.0f*sin(currentTime*10.0f), 150.0f), // 1B
+            glm::vec3(20.0f, 60.0f+5.0f*sin(currentTime*10.0f),-180.0f), // CF
+        };
+
+        int baseIndex = 3;
+        int flameIndex = 4;
+        auto catBaseShader = shaderPrograms[baseIndex];
+        auto flameShader = shaderPrograms[flameIndex];
+
+        float burn = glm::clamp((animationTime - 0.0f) * 0.1f, 0.0f, 1.0f);
+
+        for(int i = 0; i < catNumber; i++){
+            glm::mat4 catMat = glm::mat4(1.0f);
+            catMat = glm::translate(catMat, catPos[i]);
+            catMat = glm::rotate(catMat, glm::radians(currentTime*720.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+            catMat = glm::scale(catMat, glm::vec3(0.4f));
+            // draw base
+            glDisable(GL_BLEND);
+            glDepthMask(GL_TRUE);
+            catBaseShader->use();
+            catBaseShader->set_uniform_value("view", view);
+            catBaseShader->set_uniform_value("projection", projection);
+            catBaseShader->set_uniform_value("model", catMat);
+            catBaseShader->set_uniform_value("uTime", currentTime);
+            catBaseShader->set_uniform_value("uBurn", burn);
+            catBaseShader->set_uniform_value("diffuseTex", 0);
+            catModel->draw();
+            catBaseShader->release();
+            // draw flame
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            glDepthMask(GL_FALSE);
+            flameShader->use();
+            flameShader->set_uniform_value("view", view);
+            flameShader->set_uniform_value("projection", projection);
+            flameShader->set_uniform_value("model", catMat);
+            flameShader->set_uniform_value("uTime", currentTime);
+            flameShader->set_uniform_value("uBurn", burn);
+            flameShader->set_uniform_value("uUp", glm::vec3(0.0f, 1.0f, 0.0f));
+
+            catModel->draw();
+            flameShader->release();
+            glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
+        }
+        
     }
 
     // Determine whether the ball hits the microwave
@@ -593,6 +711,7 @@ void render() {
     }
 
     // draw microwave
+    
     int explosionIndex = 1; // 5 is the explosion shader index
 
     // Render microwave
@@ -616,6 +735,7 @@ void render() {
             microwaveModel->draw();
             explosionShader->release();
         }else{
+            baseShader->use();
             baseShader->set_uniform_value("model", microwaveMat);
             explosionShader->set_uniform_value("isExplosion", GL_FALSE);
             microwaveModel->draw();
@@ -643,6 +763,7 @@ void render() {
             baseballModel->draw();
             explosionShader->release();
         }else{
+            baseShader->use();
             baseShader->set_uniform_value("model", baseballMat);
             baseballModel->draw();
         }
@@ -702,6 +823,8 @@ int main() {
     delete ballparkModel;
     delete microwaveModel;
     delete cubeModel;
+    delete sharkModel;
+    delete handModel;
     for (auto shader : shaderPrograms) {
         delete shader;
     }
@@ -761,22 +884,37 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
     //     shaderProgramIndex = 7;
     // if (key == GLFW_KEY_8 && action == GLFW_PRESS)
     //     shaderProgramIndex = 8;
-    // if( key == GLFW_KEY_9 && action == GLFW_PRESS)
-    //     isCube = !isCube;
+    if( key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        animationTime += 0.1f;
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+        // before throw the ball
         startanimation = true;
+        
+        // animation of throwing the ball
         animationPlaying = false;
         animationTime = 0.0f;
 
+        // microwave explosion
         microwaveVisible = true;
         microwaveExploding = false;
         microwaveExplodeStart = -1.0f;
         
+        // ball explosion
         ballExploding = false;
         ballVisible = true;
 
+        // show the cat
+        catTime = 2.0f;
+        catNumber = 1;
+
+        // camera animation
         cameraFollowBall = true;
         camera.radius = followCameraRadius;
+
+        // trail animation
+        ballTrail.clear();
+
+
     }
     
     if (key == GLFW_KEY_R && action == GLFW_PRESS) {
