@@ -79,6 +79,11 @@ Object* catModel=nullptr;
 Object* handModel = nullptr;
 Object* cubeModel = nullptr;
 Object* letter_D_model = nullptr;
+Object* letter_O_model = nullptr;
+Object* letter_U_model = nullptr;
+Object* letter_B_model = nullptr;
+Object* letter_L_model = nullptr;
+Object* letter_E_model = nullptr;
 bool isCube = false;
 glm::mat4 modelMatrix(1.0f);
 
@@ -92,19 +97,19 @@ bool startanimation = false;
 float beforeStartDuration = 10.0f;
 float animationTime = 0.0f;
 bool animationPlaying = false;
-float animationDuration = 15.0f;
+float animationDuration = 12.0f;
 
 // microwave explosion animation
 bool microwaveVisible = true;
 bool microwaveExploding = false;
 float microwaveExplodeStart = -1.0f;
-float microwaveExplodeDuration = 5.0f;
+float microwaveExplodeDuration = 3.0f;
 
 // ball explosion animation
 bool ballVisible = true;
 bool ballExploding = false;
 float ballExplodeStart = -1.0f;
-float ballExlodeDuration = 0.8f;
+float ballExlodeDuration = 2.0f;
 
 // camera animation parameter
 bool cameraFollowBall = false;
@@ -115,6 +120,9 @@ float followCameraRadius = 120.0f;
 // cat animation
 int catNumber = 0;
 float catTime = 2.0f;
+
+float doubleLettersTime = 14.0f;  
+bool showDoubleLetters = false;
 
 
 // =====================
@@ -199,7 +207,12 @@ void model_setup(){
     std::string cat_obj_path="..\\..\\src\\asset\\obj\\Mesh_Cat.obj";
     std::string hand_texture_path = "..\\..\\src\\asset\\texture\\hand.jpg";
     std::string hand_obj_path="..\\..\\src\\asset\\obj\\hand.obj";
-    std::string D_obj_path="..\\..\\src\\asset\\obj\\B.obj";
+    std::string D_obj_path="..\\..\\src\\asset\\obj\\D.obj";
+    std::string O_obj_path="..\\..\\src\\asset\\obj\\O.obj";
+    std::string U_obj_path="..\\..\\src\\asset\\obj\\U.obj";
+    std::string B_obj_path="..\\..\\src\\asset\\obj\\B.obj";
+    std::string L_obj_path="..\\..\\src\\asset\\obj\\L.obj";
+    std::string E_obj_path="..\\..\\src\\asset\\obj\\E.obj";
 
 #endif
 
@@ -233,6 +246,11 @@ void model_setup(){
 
     // load letters
     letter_D_model = new Object(D_obj_path);
+    letter_O_model = new Object(O_obj_path);
+    letter_U_model = new Object(U_obj_path);
+    letter_B_model = new Object(B_obj_path);
+    letter_L_model = new Object(L_obj_path);
+    letter_E_model = new Object(E_obj_path);
     
     cubeModel = new Object(cube_obj_path);
 
@@ -448,6 +466,9 @@ void update(){
 
     if (animationPlaying) {
         animationTime += deltaTime;
+        if (animationTime >= doubleLettersTime && !showDoubleLetters) {
+            showDoubleLetters = true;
+        }
         if (animationTime > animationDuration) {
             // animationPlaying = false;
             ballVisible = false;
@@ -542,9 +563,9 @@ void render() {
     if (animationTime>0.0f && animationPlaying) {
         float t = glm::min(animationTime / animationDuration, 1.0f); 
         
-        float t0 = 0.35f;
-        float t1=0.4f;
-        float t2=0.42f;
+        float t0 = 0.4f;
+        float t1=0.45f;
+        float t2=0.48f;
 
         // Baseball moves toward bat
         if (t <= t1) { 
@@ -566,7 +587,7 @@ void render() {
         else {
             float phaseT = (t - t2) / (1.0f-t2); 
             
-            float parabolicHeight = 50.0f * sin(1.05*phaseT * glm::pi<float>());
+            float parabolicHeight = 75.0f * sin(1.0*phaseT * glm::pi<float>());
             
             baseballPos.x = glm::mix(baseballHitPos.x, -220.0f, phaseT);
             baseballPos.y = 60.0f + parabolicHeight;
@@ -630,14 +651,55 @@ void render() {
         shaderPrograms[shaderProgramIndex]->set_uniform_value("model", sharkMat);
         sharkModel->draw();
 
-        // Render letter
+        
 
-        glm:: mat4 letter_D_mat = glm::mat4(1.0f);
-        letter_D_mat = glm::translate(letter_D_mat, glm::vec3(0.0f, 50.0f, 0.0f));
-        letter_D_mat = glm::rotate(letter_D_mat, glm::radians(currentTime*720.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
-        letter_D_mat = glm::scale(letter_D_mat, glm::vec3(10.0f));
-        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", letter_D_mat);
-        letter_D_model->draw();
+        // Render letter
+        if(showDoubleLetters){
+            glm:: mat4 letter_D_mat = glm::mat4(1.0f);
+            letter_D_mat = glm::translate(letter_D_mat, glm::vec3(-260.0f, 60.0f, 90.0f));
+            letter_D_mat = glm::rotate(letter_D_mat, glm::radians(currentTime*360.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+            letter_D_mat = glm::scale(letter_D_mat, glm::vec3(1.2f));
+            shaderPrograms[shaderProgramIndex]->set_uniform_value("model", letter_D_mat);
+            letter_D_model->draw();
+
+            glm:: mat4 letter_O_mat = glm::mat4(1.0f);
+            letter_O_mat = glm::translate(letter_O_mat, glm::vec3(-250.0f, 60.0f, 80.0f));
+            letter_O_mat = glm::rotate(letter_O_mat, glm::radians(currentTime*360.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+            letter_O_mat = glm::scale(letter_O_mat, glm::vec3(1.2f));
+            shaderPrograms[shaderProgramIndex]->set_uniform_value("model", letter_O_mat);
+            letter_O_model->draw();
+
+            glm:: mat4 letter_U_mat = glm::mat4(1.0f);
+            letter_U_mat = glm::translate(letter_U_mat, glm::vec3(-240.0f, 60.0f, 70.0f));
+            letter_U_mat = glm::rotate(letter_U_mat, glm::radians(currentTime*360.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+            letter_U_mat = glm::scale(letter_U_mat, glm::vec3(1.2f));
+            shaderPrograms[shaderProgramIndex]->set_uniform_value("model", letter_U_mat);
+            letter_U_model->draw();
+
+            glm:: mat4 letter_B_mat = glm::mat4(1.0f);
+            letter_B_mat = glm::translate(letter_B_mat, glm::vec3(-230.0f, 60.0f, 60.0f));
+            letter_B_mat = glm::rotate(letter_B_mat, glm::radians(currentTime*360.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+            letter_B_mat = glm::scale(letter_B_mat, glm::vec3(1.2f));
+            shaderPrograms[shaderProgramIndex]->set_uniform_value("model", letter_B_mat);
+            letter_B_model->draw();
+
+            glm:: mat4 letter_L_mat = glm::mat4(1.0f);
+            letter_L_mat = glm::translate(letter_L_mat, glm::vec3(-220.0f, 60.0f, 50.0f));
+            letter_L_mat = glm::rotate(letter_L_mat, glm::radians(currentTime*360.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+            letter_L_mat = glm::scale(letter_L_mat, glm::vec3(1.2f));
+            shaderPrograms[shaderProgramIndex]->set_uniform_value("model", letter_L_mat);
+            letter_L_model->draw();
+
+            glm:: mat4 letter_E_mat = glm::mat4(1.0f);
+            letter_E_mat = glm::translate(letter_E_mat, glm::vec3(-210.0f, 60.0f, 40.0f));
+            letter_E_mat = glm::rotate(letter_E_mat, glm::radians(currentTime*360.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+            letter_E_mat = glm::scale(letter_E_mat, glm::vec3(1.2f));
+            shaderPrograms[shaderProgramIndex]->set_uniform_value("model", letter_E_mat);
+            letter_E_model->draw();
+        }
+
+        
+        
 
         glm::mat4 handMat = batMat; 
         handMat = glm::translate(handMat, glm::vec3(-50.0f, 5.0f, 3.0f));
