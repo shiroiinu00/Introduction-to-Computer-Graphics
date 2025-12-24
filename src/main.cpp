@@ -78,6 +78,7 @@ Object* sharkModel=nullptr;
 Object* catModel=nullptr;
 Object* handModel = nullptr;
 Object* cubeModel = nullptr;
+Object* letter_D_model = nullptr;
 bool isCube = false;
 glm::mat4 modelMatrix(1.0f);
 
@@ -198,6 +199,7 @@ void model_setup(){
     std::string cat_obj_path="..\\..\\src\\asset\\obj\\Mesh_Cat.obj";
     std::string hand_texture_path = "..\\..\\src\\asset\\texture\\hand.jpg";
     std::string hand_obj_path="..\\..\\src\\asset\\obj\\hand.obj";
+    std::string D_obj_path="..\\..\\src\\asset\\obj\\B.obj";
 
 #endif
 
@@ -228,6 +230,9 @@ void model_setup(){
     // load cat
     catModel = new Object(cat_obj_path);
     catModel->loadTexture(cat_texture_path);
+
+    // load letters
+    letter_D_model = new Object(D_obj_path);
     
     cubeModel = new Object(cube_obj_path);
 
@@ -624,6 +629,15 @@ void render() {
         sharkMat = glm::scale(sharkMat, glm::vec3(0.4f));
         shaderPrograms[shaderProgramIndex]->set_uniform_value("model", sharkMat);
         sharkModel->draw();
+
+        // Render letter
+
+        glm:: mat4 letter_D_mat = glm::mat4(1.0f);
+        letter_D_mat = glm::translate(letter_D_mat, glm::vec3(0.0f, 50.0f, 0.0f));
+        letter_D_mat = glm::rotate(letter_D_mat, glm::radians(currentTime*720.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+        letter_D_mat = glm::scale(letter_D_mat, glm::vec3(10.0f));
+        shaderPrograms[shaderProgramIndex]->set_uniform_value("model", letter_D_mat);
+        letter_D_model->draw();
 
         glm::mat4 handMat = batMat; 
         handMat = glm::translate(handMat, glm::vec3(-50.0f, 5.0f, 3.0f));

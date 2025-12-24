@@ -44,14 +44,14 @@ void main(){
 
     float n = noise(uv * 8.0 + vec2(0.0, uTime*0.25));
     float w = 0.08;
-    float band = 1.0 - smoothstep(0.0, 1.0, abs(n - uBurn) / w); // 0..1，越接近邊界越大
+    float band = 1.0 - smoothstep(0.0, 1.0, abs(n - uBurn) / w);
 
     float r = hash1(float(gl_PrimitiveIDIn) * 12.9898);
 
-    float width  = 0.25;
-    float height = 0.80;
+    float width  = 3.0;
+    float height = 10.0;
 
-    float sway = (noise(uv*20.0 + uTime*2.0) - 0.5) * 0.08;
+    float sway = (noise(uv*20.0 + uTime*2.0) - 0.5) * 0.8;
     vec3 side = normalize(cross(uUp, vec3(0.0,0.0,1.0)));
     if(length(side) < 0.01) side = vec3(1,0,0);
 
